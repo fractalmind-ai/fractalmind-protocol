@@ -1,0 +1,8 @@
+# Build artifacts
+contracts/protocol/build/
+contracts/protocol/Move.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
