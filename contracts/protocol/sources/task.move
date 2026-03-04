@@ -243,6 +243,7 @@ module fractalmind_protocol::task {
     public fun reject_task(
         admin_cap: &OrgAdminCap,
         task: &mut Task,
+        assignee_cert: &mut AgentCertificate,
         reason: String,
         ctx: &TxContext,
     ) {
@@ -254,7 +255,11 @@ module fractalmind_protocol::task {
         );
         assert!(task.status == constants::task_status_submitted(), constants::e_task_invalid_transition());
 
+        let assignee = *option::borrow(&task.assignee);
+        assert!(agent::cert_agent(assignee_cert) == assignee, constants::e_unauthorized());
+
         task.status = constants::task_status_rejected();
+        agent::decrease_reputation(assignee_cert, 1);
 
         event::emit(TaskRejected {
             task_id: object::id(task),

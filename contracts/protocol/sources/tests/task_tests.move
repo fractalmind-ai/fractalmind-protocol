@@ -186,9 +186,17 @@ module fractalmind_protocol::task_tests {
         {
             let admin_cap = ts::take_from_sender<OrgAdminCap>(&scenario);
             let mut task_obj = ts::take_shared<Task>(&scenario);
-            task::reject_task(&admin_cap, &mut task_obj, string::utf8(b"not good enough"), ts::ctx(&mut scenario));
+            let mut cert = ts::take_from_address<AgentCertificate>(&scenario, AGENT1);
+            task::reject_task(
+                &admin_cap,
+                &mut task_obj,
+                &mut cert,
+                string::utf8(b"not good enough"),
+                ts::ctx(&mut scenario),
+            );
             assert!(task::task_status(&task_obj) == constants::task_status_rejected(), 0);
             ts::return_shared(task_obj);
+            ts::return_to_address(AGENT1, cert);
             ts::return_to_sender(&scenario, admin_cap);
         };
 

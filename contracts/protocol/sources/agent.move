@@ -21,6 +21,7 @@ module fractalmind_protocol::agent {
         capability_tags: vector<String>,
         status: u8,
         tasks_completed: u64,
+        reputation_score: u64,
     }
 
     // ===== Events =====
@@ -73,6 +74,7 @@ module fractalmind_protocol::agent {
             capability_tags,
             status: constants::agent_status_active(),
             tasks_completed: 0,
+            reputation_score: 0,
         };
         let cert_id = object::id(&cert);
 
@@ -160,12 +162,31 @@ module fractalmind_protocol::agent {
         cert.tasks_completed = cert.tasks_completed + 1;
     }
 
+    /// Package-internal: increases reputation after successful quality review.
+    public(package) fun increase_reputation(cert: &mut AgentCertificate, delta: u64) {
+        cert.reputation_score = cert.reputation_score + delta;
+    }
+
+    /// Package-internal: decreases reputation on failed quality review (saturates at 0).
+    public(package) fun decrease_reputation(cert: &mut AgentCertificate, delta: u64) {
+        if (cert.reputation_score <= delta) {
+            cert.reputation_score = 0;
+        } else {
+            cert.reputation_score = cert.reputation_score - delta;
+        };
+    }
+
     // ===== Query Functions =====
 
     public fun cert_org_id(cert: &AgentCertificate): ID { cert.org_id }
     public fun cert_agent(cert: &AgentCertificate): address { cert.agent }
     public fun cert_status(cert: &AgentCertificate): u8 { cert.status }
     public fun cert_tasks_completed(cert: &AgentCertificate): u64 { cert.tasks_completed }
+    public fun cert_reputation_score(cert: &AgentCertificate): u64 { cert.reputation_score }
+    /// Voting power grows with reputation and always has a minimum base weight of 1.
+    public fun cert_voting_power(cert: &AgentCertificate): u64 { cert.reputation_score + 1 }
+    /// Priority score for future task allocation strategies.
+    public fun cert_priority_score(cert: &AgentCertificate): u64 { cert.reputation_score + cert.tasks_completed + 1 }
     public fun cert_capability_tags(cert: &AgentCertificate): vector<String> { cert.capability_tags }
 
     // ===== Test Helpers =====
@@ -183,12 +204,21 @@ module fractalmind_protocol::agent {
             capability_tags: vector::empty(),
             status: constants::agent_status_active(),
             tasks_completed: 0,
+            reputation_score: 0,
         }
     }
 
     #[test_only]
     public fun destroy_test_cert(cert: AgentCertificate) {
-        let AgentCertificate { id, org_id: _, agent: _, capability_tags: _, status: _, tasks_completed: _ } = cert;
+        let AgentCertificate {
+            id,
+            org_id: _,
+            agent: _,
+            capability_tags: _,
+            status: _,
+            tasks_completed: _,
+            reputation_score: _,
+        } = cert;
         object::delete(id);
     }
 }
