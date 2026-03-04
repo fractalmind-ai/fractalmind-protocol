@@ -1,5 +1,6 @@
 #[test_only]
 module fractalmind_protocol::task_tests {
+    use sui::object;
     use sui::test_scenario::{Self as ts};
     use std::string;
     use std::vector;
@@ -186,9 +187,17 @@ module fractalmind_protocol::task_tests {
         {
             let admin_cap = ts::take_from_sender<OrgAdminCap>(&scenario);
             let mut task_obj = ts::take_shared<Task>(&scenario);
-            task::reject_task(&admin_cap, &mut task_obj, string::utf8(b"not good enough"), ts::ctx(&mut scenario));
+            let mut cert = ts::take_from_address<AgentCertificate>(&scenario, AGENT1);
+            task::reject_task(
+                &admin_cap,
+                &mut task_obj,
+                &mut cert,
+                string::utf8(b"not good enough"),
+                ts::ctx(&mut scenario),
+            );
             assert!(task::task_status(&task_obj) == constants::task_status_rejected(), 0);
             ts::return_shared(task_obj);
+            ts::return_to_address(AGENT1, cert);
             ts::return_to_sender(&scenario, admin_cap);
         };
 
@@ -203,6 +212,69 @@ module fractalmind_protocol::task_tests {
             ts::return_shared(task_obj);
             ts::return_shared(org);
             ts::return_to_sender(&scenario, cert);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 2001)]
+    fun test_reject_task_with_org_mismatched_assignee_cert_fails() {
+        let mut scenario = ts::begin(ADMIN);
+        setup_org_and_agent(&mut scenario);
+
+        // Create task
+        ts::next_tx(&mut scenario, AGENT1);
+        {
+            let cert = ts::take_from_sender<AgentCertificate>(&scenario);
+            let mut org = ts::take_shared<Organization>(&scenario);
+            task::create_task(
+                &mut org,
+                &cert,
+                string::utf8(b"Reject wrong cert"),
+                string::utf8(b"org mismatch should fail"),
+                ts::ctx(&mut scenario),
+            );
+            ts::return_shared(org);
+            ts::return_to_sender(&scenario, cert);
+        };
+
+        // Assign
+        ts::next_tx(&mut scenario, AGENT1);
+        {
+            let cert = ts::take_from_sender<AgentCertificate>(&scenario);
+            let org = ts::take_shared<Organization>(&scenario);
+            let mut task_obj = ts::take_shared<Task>(&scenario);
+            task::assign_task(&mut task_obj, &org, &cert, ts::ctx(&mut scenario));
+            ts::return_shared(task_obj);
+            ts::return_shared(org);
+            ts::return_to_sender(&scenario, cert);
+        };
+
+        // Submit
+        ts::next_tx(&mut scenario, AGENT1);
+        {
+            let mut task_obj = ts::take_shared<Task>(&scenario);
+            task::submit_task(&mut task_obj, string::utf8(b"work"), ts::ctx(&mut scenario));
+            ts::return_shared(task_obj);
+        };
+
+        // Reject with forged cert that has correct assignee address but wrong org id.
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let admin_cap = ts::take_from_sender<OrgAdminCap>(&scenario);
+            let mut task_obj = ts::take_shared<Task>(&scenario);
+            let mut fake_cert = agent::create_test_cert(object::id(&task_obj), AGENT1, ts::ctx(&mut scenario));
+            task::reject_task(
+                &admin_cap,
+                &mut task_obj,
+                &mut fake_cert,
+                string::utf8(b"wrong org cert"),
+                ts::ctx(&mut scenario),
+            );
+            ts::return_shared(task_obj);
+            ts::return_to_sender(&scenario, admin_cap);
+            agent::destroy_test_cert(fake_cert);
         };
 
         ts::end(scenario);

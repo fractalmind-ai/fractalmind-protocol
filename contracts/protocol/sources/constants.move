@@ -37,6 +37,23 @@ module fractalmind_protocol::constants {
     const E_TASK_NOT_FOUND: u64 = 5004;
     const E_TASK_EMPTY_TITLE: u64 = 5005;
 
+    // Governance errors (6xxx)
+    const E_GOV_INVALID_TRANSITION: u64 = 6001;
+    const E_GOV_INVALID_VOTE: u64 = 6002;
+    const E_GOV_ALREADY_VOTED: u64 = 6003;
+    const E_GOV_VOTING_CLOSED: u64 = 6004;
+    const E_GOV_VOTING_NOT_ENDED: u64 = 6005;
+    const E_GOV_EMPTY_PROPOSAL_TITLE: u64 = 6006;
+
+    // Review errors (7xxx)
+    const E_REVIEW_INVALID_TRANSITION: u64 = 7001;
+    const E_REVIEW_INVALID_DECISION: u64 = 7002;
+    const E_REVIEW_ALREADY_REVIEWED: u64 = 7003;
+    const E_REVIEW_NOT_REVIEWER: u64 = 7004;
+    const E_REVIEW_INVALID_THRESHOLD: u64 = 7005;
+    const E_REVIEW_EMPTY_REVIEWERS: u64 = 7006;
+    const E_REVIEW_AGENT_CERT_MISMATCH: u64 = 7007;
+
     // ===== System Limits =====
 
     const MAX_FRACTAL_DEPTH: u64 = 8;
@@ -56,6 +73,31 @@ module fractalmind_protocol::constants {
     const TASK_STATUS_VERIFIED: u8 = 3;
     const TASK_STATUS_COMPLETED: u8 = 4;
     const TASK_STATUS_REJECTED: u8 = 5;
+
+    // ===== Governance Proposal Status =====
+
+    const PROPOSAL_STATUS_CREATED: u8 = 0;
+    const PROPOSAL_STATUS_VOTING: u8 = 1;
+    const PROPOSAL_STATUS_PASSED: u8 = 2;
+    const PROPOSAL_STATUS_REJECTED: u8 = 3;
+    const PROPOSAL_STATUS_EXECUTED: u8 = 4;
+
+    // ===== Governance Vote Option =====
+
+    const VOTE_FOR: u8 = 1;
+    const VOTE_AGAINST: u8 = 2;
+    const VOTE_ABSTAIN: u8 = 3;
+
+    // ===== Review Status =====
+
+    const REVIEW_STATUS_VOTING: u8 = 0;
+    const REVIEW_STATUS_PASSED: u8 = 1;
+    const REVIEW_STATUS_REJECTED: u8 = 2;
+
+    // ===== Review Decision =====
+
+    const REVIEW_DECISION_APPROVE: u8 = 1;
+    const REVIEW_DECISION_REJECT: u8 = 2;
 
     // ===== Public Accessors — Error Codes =====
 
@@ -81,6 +123,19 @@ module fractalmind_protocol::constants {
     public fun e_task_already_assigned(): u64 { E_TASK_ALREADY_ASSIGNED }
     public fun e_task_not_found(): u64 { E_TASK_NOT_FOUND }
     public fun e_task_empty_title(): u64 { E_TASK_EMPTY_TITLE }
+    public fun e_gov_invalid_transition(): u64 { E_GOV_INVALID_TRANSITION }
+    public fun e_gov_invalid_vote(): u64 { E_GOV_INVALID_VOTE }
+    public fun e_gov_already_voted(): u64 { E_GOV_ALREADY_VOTED }
+    public fun e_gov_voting_closed(): u64 { E_GOV_VOTING_CLOSED }
+    public fun e_gov_voting_not_ended(): u64 { E_GOV_VOTING_NOT_ENDED }
+    public fun e_gov_empty_proposal_title(): u64 { E_GOV_EMPTY_PROPOSAL_TITLE }
+    public fun e_review_invalid_transition(): u64 { E_REVIEW_INVALID_TRANSITION }
+    public fun e_review_invalid_decision(): u64 { E_REVIEW_INVALID_DECISION }
+    public fun e_review_already_reviewed(): u64 { E_REVIEW_ALREADY_REVIEWED }
+    public fun e_review_not_reviewer(): u64 { E_REVIEW_NOT_REVIEWER }
+    public fun e_review_invalid_threshold(): u64 { E_REVIEW_INVALID_THRESHOLD }
+    public fun e_review_empty_reviewers(): u64 { E_REVIEW_EMPTY_REVIEWERS }
+    public fun e_review_agent_cert_mismatch(): u64 { E_REVIEW_AGENT_CERT_MISMATCH }
 
     // ===== Public Accessors — Limits =====
 
@@ -101,4 +156,17 @@ module fractalmind_protocol::constants {
     public fun task_status_verified(): u8 { TASK_STATUS_VERIFIED }
     public fun task_status_completed(): u8 { TASK_STATUS_COMPLETED }
     public fun task_status_rejected(): u8 { TASK_STATUS_REJECTED }
+    public fun proposal_status_created(): u8 { PROPOSAL_STATUS_CREATED }
+    public fun proposal_status_voting(): u8 { PROPOSAL_STATUS_VOTING }
+    public fun proposal_status_passed(): u8 { PROPOSAL_STATUS_PASSED }
+    public fun proposal_status_rejected(): u8 { PROPOSAL_STATUS_REJECTED }
+    public fun proposal_status_executed(): u8 { PROPOSAL_STATUS_EXECUTED }
+    public fun vote_for(): u8 { VOTE_FOR }
+    public fun vote_against(): u8 { VOTE_AGAINST }
+    public fun vote_abstain(): u8 { VOTE_ABSTAIN }
+    public fun review_status_voting(): u8 { REVIEW_STATUS_VOTING }
+    public fun review_status_passed(): u8 { REVIEW_STATUS_PASSED }
+    public fun review_status_rejected(): u8 { REVIEW_STATUS_REJECTED }
+    public fun review_decision_approve(): u8 { REVIEW_DECISION_APPROVE }
+    public fun review_decision_reject(): u8 { REVIEW_DECISION_REJECT }
 }
