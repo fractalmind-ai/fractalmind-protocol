@@ -256,6 +256,7 @@ module fractalmind_protocol::task {
         assert!(task.status == constants::task_status_submitted(), constants::e_task_invalid_transition());
 
         let assignee = *option::borrow(&task.assignee);
+        assert!(agent::cert_org_id(assignee_cert) == task.org_id, constants::e_unauthorized());
         assert!(agent::cert_agent(assignee_cert) == assignee, constants::e_unauthorized());
 
         task.status = constants::task_status_rejected();

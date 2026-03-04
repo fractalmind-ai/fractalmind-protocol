@@ -245,6 +245,54 @@ module fractalmind_protocol::review_tests {
     }
 
     #[test]
+    #[expected_failure(abort_code = 7003)]
+    fun test_create_review_with_duplicate_reviewers_fails() {
+        let mut scenario = ts::begin(ADMIN);
+        setup_completed_task(&mut scenario);
+
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let admin_cap = ts::take_from_sender<OrgAdminCap>(&scenario);
+            let task_obj = ts::take_shared<Task>(&scenario);
+            review::create_review(
+                &admin_cap,
+                &task_obj,
+                vector[REVIEWER1, REVIEWER1],
+                2,
+                ts::ctx(&mut scenario),
+            );
+            ts::return_shared(task_obj);
+            ts::return_to_sender(&scenario, admin_cap);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 7004)]
+    fun test_create_review_with_assignee_as_reviewer_fails() {
+        let mut scenario = ts::begin(ADMIN);
+        setup_completed_task(&mut scenario);
+
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let admin_cap = ts::take_from_sender<OrgAdminCap>(&scenario);
+            let task_obj = ts::take_shared<Task>(&scenario);
+            review::create_review(
+                &admin_cap,
+                &task_obj,
+                vector[ASSIGNEE, REVIEWER1],
+                2,
+                ts::ctx(&mut scenario),
+            );
+            ts::return_shared(task_obj);
+            ts::return_to_sender(&scenario, admin_cap);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
     #[expected_failure(abort_code = 7005)]
     fun test_invalid_threshold_fails() {
         let mut scenario = ts::begin(ADMIN);

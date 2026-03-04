@@ -71,6 +71,7 @@ module fractalmind_protocol::review {
         let reviewer_count = vector::length(&reviewers);
         let assignee_opt = task::task_assignee(task);
         assert!(option::is_some(&assignee_opt), constants::e_review_agent_cert_mismatch());
+        let assignee = *option::borrow(&assignee_opt);
 
         assert!(
             organization::admin_cap_org_id(admin_cap) == task::task_org_id(task),
@@ -86,11 +87,25 @@ module fractalmind_protocol::review {
             constants::e_review_invalid_threshold(),
         );
 
+        // Validate reviewer set at creation time: no self-review and no duplicates.
+        let mut unique_reviewers = vector::empty();
+        let mut i = 0;
+        while (i < reviewer_count) {
+            let reviewer = *vector::borrow(&reviewers, i);
+            assert!(reviewer != assignee, constants::e_review_not_reviewer());
+            assert!(
+                !vector::contains(&unique_reviewers, &reviewer),
+                constants::e_review_already_reviewed(),
+            );
+            vector::push_back(&mut unique_reviewers, reviewer);
+            i = i + 1;
+        };
+
         let review = Review {
             id: object::new(ctx),
             org_id: task::task_org_id(task),
             task_id: object::id(task),
-            assignee: *option::borrow(&assignee_opt),
+            assignee,
             reviewers,
             required_approvals,
             reviewer_count,
