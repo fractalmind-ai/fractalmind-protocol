@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install SUI CLI
+        run: |
+          cargo install --locked --git https://github.com/MystenLabs/sui.git --branch testnet sui
+        env:
+          CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: make test
