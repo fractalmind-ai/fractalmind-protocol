@@ -1,0 +1,29 @@
+{
+  "name": "@fractalmind/protocol-sdk",
+  "version": "0.1.0",
+  "description": "TypeScript SDK for FractalMind Protocol on Sui",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test tests/**/*.test.ts"
+  },
+  "dependencies": {
+    "@mysten/sui": "^1.38.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.2"
+  }
+}
