@@ -10,6 +10,7 @@ import {
 } from './client';
 import type {
   CastVoteInput,
+  CloseProposalVotingInput,
   CreateGovernanceInput,
   CreateProposalInput,
   ExecuteProposalInput,
@@ -90,6 +91,21 @@ export class GovernanceApi {
 
     tx.moveCall({
       target: this.fm.target('finalize_proposal_voting'),
+      arguments: [
+        tx.object(input.adminCapId),
+        tx.object(input.governanceId),
+        tx.object(input.proposalId),
+      ],
+    });
+
+    return tx;
+  }
+
+  closeProposalVoting(input: CloseProposalVotingInput): Transaction {
+    const tx = this.fm.useTransaction(input.tx);
+
+    tx.moveCall({
+      target: this.fm.target('close_proposal_voting'),
       arguments: [
         tx.object(input.adminCapId),
         tx.object(input.governanceId),

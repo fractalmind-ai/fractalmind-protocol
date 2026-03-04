@@ -12,6 +12,7 @@ import type {
   CompleteTaskInput,
   CreateTaskInput,
   ObjectId,
+  RejectTaskInput,
   SubmitTaskInput,
   TaskData,
   VerifyTaskInput,
@@ -88,6 +89,22 @@ export class TaskApi {
         tx.object(input.adminCapId),
         tx.object(input.taskId),
         tx.object(input.assigneeCertId),
+      ],
+    });
+
+    return tx;
+  }
+
+  rejectTask(input: RejectTaskInput): Transaction {
+    const tx = this.fm.useTransaction(input.tx);
+
+    tx.moveCall({
+      target: this.fm.target('reject_task'),
+      arguments: [
+        tx.object(input.adminCapId),
+        tx.object(input.taskId),
+        tx.object(input.assigneeCertId),
+        tx.pure.string(input.reason),
       ],
     });
 

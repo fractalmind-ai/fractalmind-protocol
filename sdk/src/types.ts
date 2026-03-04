@@ -139,6 +139,13 @@ export interface CompleteTaskInput extends TxBuildOptions {
   assigneeCertId: ObjectId;
 }
 
+export interface RejectTaskInput extends TxBuildOptions {
+  adminCapId: ObjectId;
+  taskId: ObjectId;
+  assigneeCertId: ObjectId;
+  reason: string;
+}
+
 export interface CreateSubOrganizationInput extends TxBuildOptions {
   adminCapId: ObjectId;
   parentOrganizationId: ObjectId;
@@ -182,6 +189,12 @@ export interface CastVoteInput extends TxBuildOptions {
 }
 
 export interface FinalizeProposalVotingInput extends TxBuildOptions {
+  adminCapId: ObjectId;
+  governanceId: ObjectId;
+  proposalId: ObjectId;
+}
+
+export interface CloseProposalVotingInput extends TxBuildOptions {
   adminCapId: ObjectId;
   governanceId: ObjectId;
   proposalId: ObjectId;
