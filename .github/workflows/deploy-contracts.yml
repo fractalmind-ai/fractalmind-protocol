@@ -1,0 +1,269 @@
+name: Deploy FractalMind Protocol
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Target Sui network'
+        required: true
+        type: choice
+        options:
+          - testnet
+          - mainnet
+        default: testnet
+      ref:
+        description: 'Branch, tag, or commit to deploy'
+        required: false
+        default: ''
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.network }}
+    runs-on: ubuntu-latest
+    env:
+      SUI_NETWORK: ${{ inputs.network }}
+      DEPLOY_REF: ${{ inputs.ref || github.ref }}
+
+    outputs:
+      package_id: ${{ steps.publish.outputs.package_id }}
+      registry_id: ${{ steps.publish.outputs.registry_id }}
+      tx_digest: ${{ steps.publish.outputs.tx_digest }}
+
+    steps:
+      # ============================================
+      # Setup Phase
+      # ============================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.DEPLOY_REF }}
+
+      - name: Select Sui CLI version
+        run: |
+          set -euo pipefail
+          case "$SUI_NETWORK" in
+            testnet)
+              echo "SUI_VERSION=testnet-v1.67.1" >> $GITHUB_ENV
+              ;;
+            mainnet)
+              echo "SUI_VERSION=mainnet-v1.67.1" >> $GITHUB_ENV
+              ;;
+          esac
+
+      - name: Install Sui CLI (${{ env.SUI_VERSION || 'testnet-v1.67.1' }})
+        run: |
+          set -euo pipefail
+          SUI_VERSION="${SUI_VERSION:-testnet-v1.67.1}"
+          echo "Installing Sui CLI version $SUI_VERSION"
+          ARCHIVE="sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          curl -fsSL "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/${ARCHIVE}" -o sui.tgz
+          tar -xzf sui.tgz
+
+          if [ -f "sui" ]; then
+            sudo mv sui /usr/local/bin/
+          else
+            FOUND=$(find . -type f -name sui -perm -111 | head -1)
+            if [ -z "$FOUND" ]; then
+              echo "::error::Unable to locate sui binary in archive"
+              exit 1
+            fi
+            sudo mv "$FOUND" /usr/local/bin/sui
+          fi
+
+          rm -rf sui.tgz target/
+          sui --version
+
+      - name: Configure Sui client
+        run: |
+          set -euo pipefail
+          echo "Preparing Sui client configuration for $SUI_NETWORK"
+          rm -rf "$HOME/.sui"
+
+          RPC_URL="https://fullnode.${SUI_NETWORK}.sui.io:443"
+          echo "Using RPC endpoint: $RPC_URL"
+
+          sui client --yes new-env --alias "$SUI_NETWORK" --rpc "$RPC_URL" || true
+          if ! sui client switch --env "$SUI_NETWORK"; then
+            echo "::error::Failed to select Sui environment $SUI_NETWORK"
+            exit 1
+          fi
+          echo "Active environment: $(sui client active-env)"
+
+      - name: Import deployment wallet
+        env:
+          SUI_MNEMONICS: ${{ inputs.network == 'testnet' && secrets.TESTNET_SUI_MNEMONICS || secrets.MAINNET_SUI_MNEMONICS }}
+        run: |
+          set -euo pipefail
+          echo "Importing deployment wallet"
+
+          if [ -z "${SUI_MNEMONICS:-}" ]; then
+            echo "::error::Mnemonic secret is not set for $SUI_NETWORK"
+            exit 1
+          fi
+
+          DERIVATION_PATH="m/44'/784'/0'/0'/0'"
+          rm -f "$HOME/.sui/sui_config/sui.keystore"
+          sui keytool import "$SUI_MNEMONICS" ed25519 "$DERIVATION_PATH"
+
+          WALLET_ADDRESS=$(sui keytool list | grep -o "0x[0-9a-fA-F]\{64\}" | head -1)
+          if [ -z "$WALLET_ADDRESS" ]; then
+            echo "::error::Failed to determine wallet address"
+            exit 1
+          fi
+
+          sui client switch --address "$WALLET_ADDRESS"
+          echo "WALLET_ADDRESS=$WALLET_ADDRESS" >> $GITHUB_ENV
+          echo "::notice title=Deployment Wallet::$WALLET_ADDRESS"
+
+      - name: Show wallet balance
+        run: |
+          set -euo pipefail
+          echo "Current balance for $WALLET_ADDRESS"
+          sui client balance
+
+          BALANCE_OUTPUT=$(sui client balance || true)
+          AVAILABLE=$(echo "$BALANCE_OUTPUT" | awk '/SUI/ {print $3; exit}' || echo "0")
+
+          if ! awk -v bal="$AVAILABLE" 'BEGIN {exit !(bal >= 0.3)}'; then
+            echo "::error::Wallet balance (${AVAILABLE} SUI) is below minimum (0.3 SUI)"
+            exit 1
+          fi
+
+      - name: Merge gas coins
+        run: |
+          set -euo pipefail
+          echo "Merging SUI coins for sufficient gas budget"
+          COINS=$(sui client gas --json | jq length)
+          if [ "$COINS" -gt 1 ]; then
+            sui client merge-coin \
+              --coin-to-merge $(sui client gas --json | jq -r '.[0].gasCoinId') \
+              --primary-coin $(sui client gas --json | jq -r '.[1].gasCoinId') || true
+          fi
+          sui client balance
+
+      # ============================================
+      # Build & Publish
+      # ============================================
+      - name: Build protocol package
+        run: |
+          set -euo pipefail
+          cd contracts/protocol
+          echo "=== Move.toml ==="
+          cat Move.toml
+          echo "================="
+          sui move build --path . --silence-warnings
+
+      - name: Publish protocol package
+        id: publish
+        run: |
+          set -euo pipefail
+          cd contracts/protocol
+
+          GAS_BUDGET=500000000
+          echo "Publishing fractalmind_protocol with gas budget $GAS_BUDGET"
+
+          set +e
+          DEPLOY_OUTPUT=$(sui client publish --gas-budget "$GAS_BUDGET" --silence-warnings --json 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          echo "$DEPLOY_OUTPUT" > deploy_output.json
+          echo "=== Publish output ==="
+          echo "$DEPLOY_OUTPUT"
+          echo "======================"
+
+          # Extract JSON (skip any non-JSON prefix lines)
+          JSON_OUTPUT=$(echo "$DEPLOY_OUTPUT" | sed -n '/^[[:space:]]*{/,$p')
+
+          if [[ $EXIT_CODE -ne 0 ]]; then
+            echo "::error::Deployment failed with exit code $EXIT_CODE"
+            exit 1
+          fi
+
+          if ! echo "$JSON_OUTPUT" | jq -e '.effects.status.status == "success"' > /dev/null; then
+            echo "::error::Deployment transaction did not succeed"
+            exit 1
+          fi
+
+          # Extract package ID
+          PACKAGE_ID=$(echo "$JSON_OUTPUT" | jq -r '.objectChanges[] | select(.type == "published") | .packageId')
+
+          # Extract ProtocolRegistry object ID (shared object created by bootstrap::init)
+          REGISTRY_ID=$(echo "$JSON_OUTPUT" | jq -r '
+            .objectChanges[]
+            | select(.type == "created")
+            | select(.objectType | contains("ProtocolRegistry"))
+            | .objectId
+          ')
+
+          TX_DIGEST=$(echo "$JSON_OUTPUT" | jq -r '.digest')
+
+          # Save created objects for reference
+          echo "$JSON_OUTPUT" | jq '.objectChanges[] | select(.type == "created")' > created_objects.json
+
+          echo "package_id=$PACKAGE_ID" >> $GITHUB_OUTPUT
+          echo "registry_id=$REGISTRY_ID" >> $GITHUB_OUTPUT
+          echo "tx_digest=$TX_DIGEST" >> $GITHUB_OUTPUT
+
+          echo "PACKAGE_ID=$PACKAGE_ID" >> $GITHUB_ENV
+          echo "REGISTRY_ID=$REGISTRY_ID" >> $GITHUB_ENV
+          echo "TX_DIGEST=$TX_DIGEST" >> $GITHUB_ENV
+
+          echo "::notice title=Package ID::$PACKAGE_ID"
+          echo "::notice title=Registry ID::$REGISTRY_ID"
+          echo "::notice title=Tx Digest::$TX_DIGEST"
+
+      # ============================================
+      # Summary & Artifacts
+      # ============================================
+      - name: Deployment summary
+        run: |
+          set -euo pipefail
+          cat <<EOF >> $GITHUB_STEP_SUMMARY
+          # FractalMind Protocol Deployment
+
+          ## Environment
+          - **Network**: ${SUI_NETWORK}
+          - **Ref**: ${DEPLOY_REF}
+          - **Timestamp**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+          - **Deployer**: ${WALLET_ADDRESS}
+
+          ## Deployed Objects
+          | Object | ID |
+          |--------|-----|
+          | **Package** | \`${PACKAGE_ID}\` |
+          | **ProtocolRegistry** | \`${REGISTRY_ID}\` |
+          | **Transaction** | \`${TX_DIGEST}\` |
+
+          ## Explorer Links
+          - [Package on SuiScan](https://suiscan.xyz/${SUI_NETWORK}/object/${PACKAGE_ID})
+          - [Registry on SuiScan](https://suiscan.xyz/${SUI_NETWORK}/object/${REGISTRY_ID})
+          - [Transaction on SuiScan](https://suiscan.xyz/${SUI_NETWORK}/tx/${TX_DIGEST})
+
+          ## SDK Configuration
+          \`\`\`typescript
+          const sdk = new FractalMindSDK({
+            packageId: '${PACKAGE_ID}',
+            registryId: '${REGISTRY_ID}',
+            network: '${SUI_NETWORK}',
+          });
+          \`\`\`
+
+          ## Next Steps
+          1. Create SuLabs organization
+          2. Register AI agents
+          3. Complete task lifecycle test
+          EOF
+
+      - name: Upload deployment artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: fractalmind-${{ inputs.network }}-deployment-${{ github.run_id }}
+          path: |
+            contracts/protocol/deploy_output.json
+            contracts/protocol/created_objects.json
+
+      - name: Cleanup keystore
+        if: always()
+        run: |
+          rm -f "$HOME/.sui/sui_config/sui.keystore"
