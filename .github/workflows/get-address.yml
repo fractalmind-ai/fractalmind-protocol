@@ -1,0 +1,47 @@
+name: Get SUI Address
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Network (testnet or mainnet)'
+        required: true
+        default: 'testnet'
+        type: choice
+        options:
+          - testnet
+          - mainnet
+
+jobs:
+  get-address:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install SUI CLI
+        run: |
+          curl -fsSL https://sui.io/install.sh | bash
+          echo "$HOME/.sui/bin" >> $GITHUB_PATH
+
+      - name: Derive address from mnemonic
+        env:
+          MNEMONICS: ${{ inputs.network == 'testnet' && secrets.TESTNET_SUI_MNEMONICS || secrets.MAINNET_SUI_MNEMONICS }}
+        run: |
+          # Import mnemonic and derive address
+          ADDRESS=$(sui keytool import "$MNEMONICS" ed25519 --json 2>/dev/null | jq -r '.suiAddress // .key.suiAddress // empty')
+
+          # Fallback: if --json not supported, parse text output
+          if [ -z "$ADDRESS" ]; then
+            OUTPUT=$(sui keytool import "$MNEMONICS" ed25519 2>&1)
+            ADDRESS=$(echo "$OUTPUT" | grep -oP '0x[a-f0-9]{64}')
+          fi
+
+          if [ -z "$ADDRESS" ]; then
+            echo "::error::Failed to derive address"
+            exit 1
+          fi
+
+          NETWORK="${{ inputs.network }}"
+          echo "## SUI ${NETWORK^} Address" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`${ADDRESS}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Explorer: https://suiscan.xyz/${NETWORK}/account/${ADDRESS}" >> $GITHUB_STEP_SUMMARY
