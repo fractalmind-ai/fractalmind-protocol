@@ -58,6 +58,11 @@ jobs:
           fi
 
           NETWORK="${{ inputs.network }}"
+          echo "=========================================="
+          echo "SUI ${NETWORK^} Address: ${ADDRESS}"
+          echo "Explorer: https://suiscan.xyz/${NETWORK}/account/${ADDRESS}"
+          echo "=========================================="
+
           echo "## SUI ${NETWORK^} Address" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`${ADDRESS}\`" >> $GITHUB_STEP_SUMMARY
