@@ -28,17 +28,16 @@ jobs:
         env:
           MNEMONICS: ${{ inputs.network == 'testnet' && secrets.TESTNET_SUI_MNEMONICS || secrets.MAINNET_SUI_MNEMONICS }}
         run: |
-          # Import mnemonic and derive address
-          ADDRESS=$(sui keytool import "$MNEMONICS" ed25519 --json 2>/dev/null | jq -r '.suiAddress // .key.suiAddress // empty')
+          # Import mnemonic - capture all output (stdout + stderr)
+          OUTPUT=$(sui keytool import "$MNEMONICS" ed25519 2>&1 || true)
+          echo "Raw output (redacted mnemonics):"
+          echo "$OUTPUT" | grep -v "$MNEMONICS"
 
-          # Fallback: if --json not supported, parse text output
-          if [ -z "$ADDRESS" ]; then
-            OUTPUT=$(sui keytool import "$MNEMONICS" ed25519 2>&1)
-            ADDRESS=$(echo "$OUTPUT" | grep -oP '0x[a-f0-9]{64}')
-          fi
+          # Extract 0x address (64 hex chars)
+          ADDRESS=$(echo "$OUTPUT" | grep -oP '0x[a-f0-9]{64}' | head -1)
 
           if [ -z "$ADDRESS" ]; then
-            echo "::error::Failed to derive address"
+            echo "::error::Failed to derive address from output"
             exit 1
           fi
 
