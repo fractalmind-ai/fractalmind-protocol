@@ -28,16 +28,32 @@ jobs:
         env:
           MNEMONICS: ${{ inputs.network == 'testnet' && secrets.TESTNET_SUI_MNEMONICS || secrets.MAINNET_SUI_MNEMONICS }}
         run: |
-          # Import mnemonic - capture all output (stdout + stderr)
+          # Initialize SUI client config (required before keytool import)
+          mkdir -p ~/.sui/sui_config
+          cat > ~/.sui/sui_config/client.yaml << 'YAML'
+          ---
+          keystore:
+            File: /home/runner/.sui/sui_config/sui.keystore
+          envs:
+            - alias: testnet
+              rpc: "https://fullnode.testnet.sui.io:443"
+            - alias: mainnet
+              rpc: "https://fullnode.mainnet.sui.io:443"
+          active_env: testnet
+          YAML
+          echo "[]" > ~/.sui/sui_config/sui.keystore
+
+          # Import mnemonic
           OUTPUT=$(sui keytool import "$MNEMONICS" ed25519 2>&1 || true)
-          echo "Raw output (redacted mnemonics):"
-          echo "$OUTPUT" | grep -v "$MNEMONICS"
 
           # Extract 0x address (64 hex chars)
           ADDRESS=$(echo "$OUTPUT" | grep -oP '0x[a-f0-9]{64}' | head -1)
 
           if [ -z "$ADDRESS" ]; then
-            echo "::error::Failed to derive address from output"
+            # Debug: show output without mnemonics
+            echo "keytool output:"
+            echo "$OUTPUT" | sed "s/$MNEMONICS/[REDACTED]/g"
+            echo "::error::Failed to derive address"
             exit 1
           fi
 
