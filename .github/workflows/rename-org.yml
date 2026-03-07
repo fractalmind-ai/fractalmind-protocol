@@ -1,0 +1,77 @@
+name: Rename Organization
+
+on:
+  workflow_dispatch:
+    inputs:
+      org_id:
+        description: 'Organization object ID'
+        required: true
+      admin_cap_id:
+        description: 'OrgAdminCap object ID'
+        required: true
+      new_name:
+        description: 'New organization name'
+        required: true
+
+jobs:
+  rename:
+    name: Rename org on Testnet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Sui CLI
+        run: |
+          set -euo pipefail
+          SUI_VERSION="testnet-v1.67.1"
+          ARCHIVE="sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          curl -fsSL "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/${ARCHIVE}" -o sui.tgz
+          tar -xzf sui.tgz
+          FOUND=$(find . -type f -name sui -perm -111 | head -1)
+          if [ -n "$FOUND" ]; then sudo mv "$FOUND" /usr/local/bin/sui; else sudo mv sui /usr/local/bin/; fi
+          rm -rf sui.tgz target/
+          sui --version
+
+      - name: Configure client
+        run: |
+          set -euo pipefail
+          rm -rf "$HOME/.sui"
+          sui client --yes new-env --alias testnet --rpc "https://fullnode.testnet.sui.io:443" || true
+          sui client switch --env testnet
+
+      - name: Import wallet
+        env:
+          SUI_MNEMONICS: ${{ secrets.TESTNET_SUI_MNEMONICS }}
+        run: |
+          set -euo pipefail
+          DERIVATION_PATH="m/44'/784'/0'/0'/0'"
+          rm -f "$HOME/.sui/sui_config/sui.keystore"
+          sui keytool import "$SUI_MNEMONICS" ed25519 "$DERIVATION_PATH"
+          WALLET_ADDRESS=$(sui keytool list | grep -o "0x[0-9a-fA-F]\{64\}" | head -1)
+          sui client switch --address "$WALLET_ADDRESS"
+          echo "Wallet: $WALLET_ADDRESS"
+
+      - name: Rename organization
+        run: |
+          set -euo pipefail
+          PACKAGE_ID="0x685d6fb6ed8b0e679bb467ea73111819ec6ff68b1466d24ca26b400095dcdf24"
+          REGISTRY_ID="0xfb8611bf2eb94b950e4ad47a76adeaab8ddda23e602c77e7464cc20572a547e3"
+
+          echo "Renaming org ${{ inputs.org_id }} to '${{ inputs.new_name }}'"
+
+          sui client call \
+            --package "$PACKAGE_ID" \
+            --module entry \
+            --function rename_organization \
+            --args \
+              "${{ inputs.admin_cap_id }}" \
+              "$REGISTRY_ID" \
+              "${{ inputs.org_id }}" \
+              "${{ inputs.new_name }}" \
+            --gas-budget 50000000 \
+            --json
+
+          echo "Done! Organization renamed."
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.sui/sui_config/sui.keystore"
