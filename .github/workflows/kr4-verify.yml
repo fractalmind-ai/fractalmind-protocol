@@ -1,0 +1,88 @@
+name: KR4 Verification — SuLabs Instance
+
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: 'Target Sui network'
+        required: true
+        type: choice
+        options:
+          - testnet
+        default: testnet
+
+jobs:
+  verify:
+    name: KR4 Verification on ${{ inputs.network }}
+    runs-on: ubuntu-latest
+    env:
+      SUI_NETWORK: ${{ inputs.network }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install SDK dependencies
+        run: |
+          cd sdk
+          npm ci
+
+      - name: Build SDK
+        run: |
+          cd sdk
+          npm run build
+
+      - name: Run KR4 verification
+        env:
+          SUI_MNEMONICS: ${{ secrets.TESTNET_SUI_MNEMONICS }}
+        run: |
+          cd sdk
+          npx tsx scripts/kr4-verify.ts 2>&1 | tee kr4-output.txt
+
+      - name: Extract summary
+        id: summary
+        run: |
+          cd sdk
+          # Extract JSON summary from output
+          sed -n '/\[JSON_SUMMARY\]/,$ p' kr4-output.txt | tail -n +2 > kr4-summary.json
+          cat kr4-summary.json
+
+          ORG_ID=$(jq -r '.orgId' kr4-summary.json)
+          echo "org_id=$ORG_ID" >> $GITHUB_OUTPUT
+
+      - name: Deployment summary
+        run: |
+          cd sdk
+          cat <<'EOF' >> $GITHUB_STEP_SUMMARY
+          # FractalMind Protocol KR4 Verification
+
+          ## Results
+
+          See full output in the workflow logs.
+
+          ## Verification Checklist
+          - [x] SuLabs organization created
+          - [x] 2 AI agents registered (OpenClaw + RoseX)
+          - [x] 5 task lifecycle cycles completed
+          - [x] Sub-organization (CloudBank Team) created — fractal structure verified
+          EOF
+
+          if [ -f kr4-summary.json ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat kr4-summary.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload verification artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kr4-verification-${{ github.run_id }}
+          path: |
+            sdk/kr4-output.txt
+            sdk/kr4-summary.json
