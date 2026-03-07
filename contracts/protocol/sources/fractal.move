@@ -82,7 +82,7 @@ module fractalmind_protocol::fractal {
     /// (we require parent admin cap + child admin cap).
     public fun detach_sub_organization(
         parent_admin_cap: &OrgAdminCap,
-        _child_admin_cap: &OrgAdminCap,
+        child_admin_cap: &OrgAdminCap,
         parent_org: &mut Organization,
         child_org: &mut Organization,
     ) {
@@ -96,6 +96,10 @@ module fractalmind_protocol::fractal {
         assert!(
             organization::has_child_org(parent_org, child_id),
             constants::e_org_not_child(),
+        );
+        assert!(
+            organization::admin_cap_org_id(child_admin_cap) == child_id,
+            constants::e_not_admin(),
         );
 
         organization::remove_child_org(parent_org, child_id);

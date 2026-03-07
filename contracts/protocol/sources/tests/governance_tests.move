@@ -47,8 +47,8 @@ module fractalmind_protocol::governance_tests {
         ts::next_tx(scenario, ADMIN);
         {
             let admin_cap = ts::take_from_sender<OrgAdminCap>(scenario);
-            let org = ts::take_shared<Organization>(scenario);
-            governance::create_governance(&admin_cap, &org, ts::ctx(scenario));
+            let mut org = ts::take_shared<Organization>(scenario);
+            governance::create_governance(&admin_cap, &mut org, ts::ctx(scenario));
             ts::return_shared(org);
             ts::return_to_sender(scenario, admin_cap);
         };
@@ -98,6 +98,25 @@ module fractalmind_protocol::governance_tests {
             assert!(governance::proposal_status(&proposal) == constants::proposal_status_voting(), 1);
             ts::return_shared(proposal);
             ts::return_shared(governance_obj);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 6007)]
+    fun test_duplicate_governance_creation_fails() {
+        let mut scenario = ts::begin(ADMIN);
+        setup_org_and_agents(&mut scenario);
+
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let admin_cap = ts::take_from_sender<OrgAdminCap>(&scenario);
+            let mut org = ts::take_shared<Organization>(&scenario);
+            governance::create_governance(&admin_cap, &mut org, ts::ctx(&mut scenario));
+            governance::create_governance(&admin_cap, &mut org, ts::ctx(&mut scenario));
+            ts::return_shared(org);
+            ts::return_to_sender(&scenario, admin_cap);
         };
 
         ts::end(scenario);

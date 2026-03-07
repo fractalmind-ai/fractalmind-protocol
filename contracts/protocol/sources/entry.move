@@ -167,7 +167,7 @@ module fractalmind_protocol::entry {
 
     public entry fun create_governance(
         admin_cap: &OrgAdminCap,
-        org: &Organization,
+        org: &mut Organization,
         ctx: &mut TxContext,
     ) {
         governance::create_governance(admin_cap, org, ctx);

@@ -44,6 +44,7 @@ module fractalmind_protocol::constants {
     const E_GOV_VOTING_CLOSED: u64 = 6004;
     const E_GOV_VOTING_NOT_ENDED: u64 = 6005;
     const E_GOV_EMPTY_PROPOSAL_TITLE: u64 = 6006;
+    const E_GOV_ALREADY_EXISTS: u64 = 6007;
 
     // Review errors (7xxx)
     const E_REVIEW_INVALID_TRANSITION: u64 = 7001;
@@ -129,6 +130,7 @@ module fractalmind_protocol::constants {
     public fun e_gov_voting_closed(): u64 { E_GOV_VOTING_CLOSED }
     public fun e_gov_voting_not_ended(): u64 { E_GOV_VOTING_NOT_ENDED }
     public fun e_gov_empty_proposal_title(): u64 { E_GOV_EMPTY_PROPOSAL_TITLE }
+    public fun e_gov_already_exists(): u64 { E_GOV_ALREADY_EXISTS }
     public fun e_review_invalid_transition(): u64 { E_REVIEW_INVALID_TRANSITION }
     public fun e_review_invalid_decision(): u64 { E_REVIEW_INVALID_DECISION }
     public fun e_review_already_reviewed(): u64 { E_REVIEW_ALREADY_REVIEWED }

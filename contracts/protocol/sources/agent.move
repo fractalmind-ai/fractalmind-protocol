@@ -97,6 +97,7 @@ module fractalmind_protocol::agent {
     ) {
         let sender = tx_context::sender(ctx);
         assert!(cert.agent == sender, constants::e_unauthorized());
+        assert!(cert.org_id == organization::org_id(org), constants::e_unauthorized());
         assert!(cert.status == constants::agent_status_active(), constants::e_agent_not_active());
 
         cert.status = constants::agent_status_inactive();
