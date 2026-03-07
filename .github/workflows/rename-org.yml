@@ -53,7 +53,7 @@ jobs:
       - name: Rename organization
         run: |
           set -euo pipefail
-          PACKAGE_ID="0x685d6fb6ed8b0e679bb467ea73111819ec6ff68b1466d24ca26b400095dcdf24"
+          PACKAGE_ID="0xbcd809654bae11a06cde392204badd1806695ebbacfeb8c89e13c94bd05180e1"
           REGISTRY_ID="0xfb8611bf2eb94b950e4ad47a76adeaab8ddda23e602c77e7464cc20572a547e3"
 
           echo "Renaming org ${{ inputs.org_id }} to '${{ inputs.new_name }}'"
