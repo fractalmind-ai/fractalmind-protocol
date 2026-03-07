@@ -85,6 +85,12 @@ module fractalmind_protocol::organization {
         new_admin: address,
     }
 
+    public struct OrgRenamed has copy, drop {
+        org_id: ID,
+        old_name: String,
+        new_name: String,
+    }
+
     // ===== Init (called from bootstrap) =====
 
     /// Create and share the global ProtocolRegistry. Called once at publish.
@@ -190,6 +196,37 @@ module fractalmind_protocol::organization {
         event::emit(OrgDescriptionUpdated {
             org_id: object::id(org),
             new_description,
+        });
+    }
+
+    /// Admin-only: rename an organization. Updates both org and name_registry.
+    public fun rename_organization(
+        admin_cap: &OrgAdminCap,
+        registry: &mut ProtocolRegistry,
+        org: &mut Organization,
+        new_name: String,
+    ) {
+        assert!(admin_cap.org_id == object::id(org), constants::e_not_admin());
+        assert!(org.is_active, constants::e_org_not_active());
+        assert!(std::string::length(&new_name) > 0, constants::e_empty_name());
+        assert!(
+            !table::contains(&registry.name_registry, new_name),
+            constants::e_org_name_taken(),
+        );
+
+        let old_name = org.name;
+
+        // Update name_registry: remove old, add new
+        table::remove(&mut registry.name_registry, old_name);
+        table::add(&mut registry.name_registry, new_name, object::id(org));
+
+        // Update org name
+        org.name = new_name;
+
+        event::emit(OrgRenamed {
+            org_id: object::id(org),
+            old_name,
+            new_name,
         });
     }
 

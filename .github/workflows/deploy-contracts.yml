@@ -11,6 +11,18 @@ on:
           - testnet
           - mainnet
         default: testnet
+      action:
+        description: 'Deploy action'
+        required: true
+        type: choice
+        options:
+          - publish
+          - upgrade
+        default: publish
+      upgrade_cap:
+        description: 'UpgradeCap object ID (required for upgrade)'
+        required: false
+        default: ''
       ref:
         description: 'Branch, tag, or commit to deploy'
         required: false
@@ -160,12 +172,26 @@ jobs:
           cd contracts/protocol
 
           GAS_BUDGET=500000000
-          echo "Publishing fractalmind_protocol with gas budget $GAS_BUDGET"
+          ACTION="${{ inputs.action }}"
+          UPGRADE_CAP="${{ inputs.upgrade_cap }}"
 
-          set +e
-          DEPLOY_OUTPUT=$(sui client publish --gas-budget "$GAS_BUDGET" --silence-warnings --json 2>&1)
-          EXIT_CODE=$?
-          set -e
+          if [ "$ACTION" = "upgrade" ]; then
+            if [ -z "$UPGRADE_CAP" ]; then
+              echo "::error::UpgradeCap object ID is required for upgrade"
+              exit 1
+            fi
+            echo "Upgrading fractalmind_protocol with UpgradeCap $UPGRADE_CAP"
+            set +e
+            DEPLOY_OUTPUT=$(sui client upgrade --gas-budget "$GAS_BUDGET" --upgrade-capability "$UPGRADE_CAP" --silence-warnings --json 2>&1)
+            EXIT_CODE=$?
+            set -e
+          else
+            echo "Publishing fractalmind_protocol with gas budget $GAS_BUDGET"
+            set +e
+            DEPLOY_OUTPUT=$(sui client publish --gas-budget "$GAS_BUDGET" --silence-warnings --json 2>&1)
+            EXIT_CODE=$?
+            set -e
+          fi
 
           echo "$DEPLOY_OUTPUT" > deploy_output.json
           echo "=== Publish output ==="

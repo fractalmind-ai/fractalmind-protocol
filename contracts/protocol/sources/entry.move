@@ -50,6 +50,15 @@ module fractalmind_protocol::entry {
         organization::transfer_admin(admin_cap, org, new_admin, ctx);
     }
 
+    public entry fun rename_organization(
+        admin_cap: &OrgAdminCap,
+        registry: &mut ProtocolRegistry,
+        org: &mut Organization,
+        new_name: String,
+    ) {
+        organization::rename_organization(admin_cap, registry, org, new_name);
+    }
+
     // ===== Agent Entry Points =====
 
     public entry fun register_agent(
