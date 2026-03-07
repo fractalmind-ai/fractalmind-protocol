@@ -204,23 +204,21 @@ async function main() {
     const taskId = findCreated(taskObjects, 'Task');
     taskIds.push(taskId);
 
-    // Assign (alternate between agents)
-    const isRoseX = i % 2 !== 0;
-    const assigneeCertId = isRoseX ? agent2CertId : agent1CertId;
-    const assigneeSigner = isRoseX ? keypair2 : keypair;
+    // Assign to OpenClaw (admin) — complete_task needs both adminCap + assigneeCert
+    // from same owner, so all tasks go to the admin agent
     const assignTx = sdk.task.assignTask({
       taskId,
       organizationId: orgId,
-      certId: assigneeCertId,
+      certId: agent1CertId,
     });
-    await exec(assignTx, `assign_task #${i + 1}`, assigneeSigner);
+    await exec(assignTx, `assign_task #${i + 1}`);
 
-    // Submit (must be signed by assignee)
+    // Submit (signed by assignee = admin)
     const submitTx = sdk.task.submitTask({
       taskId,
       submission: t.submission,
     });
-    await exec(submitTx, `submit_task #${i + 1}`, assigneeSigner);
+    await exec(submitTx, `submit_task #${i + 1}`);
 
     // Verify
     const verifyTx = sdk.task.verifyTask({
@@ -233,7 +231,7 @@ async function main() {
     const completeTx = sdk.task.completeTask({
       adminCapId,
       taskId,
-      assigneeCertId,
+      assigneeCertId: agent1CertId,
     });
     await exec(completeTx, `complete_task #${i + 1}`);
 
