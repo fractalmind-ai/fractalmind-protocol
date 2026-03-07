@@ -31,22 +31,43 @@ async function main() {
     throw new Error('SUI_MNEMONICS environment variable is required');
   }
 
-  // --- Setup ---
-  const keypair = Ed25519Keypair.deriveKeypair(mnemonic);
+  // --- Setup: Two keypairs from same mnemonic (different derivation paths) ---
+  const keypair = Ed25519Keypair.deriveKeypair(mnemonic, "m/44'/784'/0'/0'/0'");
   const address = keypair.getPublicKey().toSuiAddress();
+  const keypair2 = Ed25519Keypair.deriveKeypair(mnemonic, "m/44'/784'/1'/0'/0'");
+  const address2 = keypair2.getPublicKey().toSuiAddress();
   const client = new SuiClient({ url: 'https://fullnode.testnet.sui.io:443' });
 
   console.log('=== FractalMind Protocol KR4 Verification ===');
-  console.log(`Wallet: ${address}`);
+  console.log(`Wallet 1 (Admin/OpenClaw): ${address}`);
+  console.log(`Wallet 2 (RoseX):         ${address2}`);
   console.log(`Package: ${PACKAGE_ID}`);
   console.log(`Registry: ${REGISTRY_ID}`);
   console.log();
 
   const balance = await client.getBalance({ owner: address });
-  console.log(`Balance: ${Number(balance.totalBalance) / 1e9} SUI`);
+  console.log(`Balance (wallet 1): ${Number(balance.totalBalance) / 1e9} SUI`);
   if (Number(balance.totalBalance) < 100_000_000) {
     throw new Error('Insufficient balance (need ≥0.1 SUI)');
   }
+
+  // Fund wallet 2 for gas
+  const balance2 = await client.getBalance({ owner: address2 });
+  if (Number(balance2.totalBalance) < 50_000_000) {
+    console.log('Funding wallet 2 with 0.2 SUI...');
+    const fundTx = new Transaction();
+    const [coin] = fundTx.splitCoins(fundTx.gas, [200_000_000]);
+    fundTx.transferObjects([coin], address2);
+    const fundResult = await client.signAndExecuteTransaction({
+      signer: keypair,
+      transaction: fundTx,
+      options: { showEffects: true },
+    });
+    await client.waitForTransaction({ digest: fundResult.digest });
+    console.log(`  Funded wallet 2: ${fundResult.digest}`);
+  }
+  const bal2After = await client.getBalance({ owner: address2 });
+  console.log(`Balance (wallet 2): ${Number(bal2After.totalBalance) / 1e9} SUI`);
   console.log();
 
   const sdk = new FractalMindSDK({
@@ -56,10 +77,10 @@ async function main() {
   });
 
   // Helper: execute transaction and extract created objects
-  async function exec(tx: Transaction, label: string): Promise<CreatedObject[]> {
+  async function exec(tx: Transaction, label: string, signer: Ed25519Keypair = keypair): Promise<CreatedObject[]> {
     console.log(`[TX] ${label}...`);
     const result = await client.signAndExecuteTransaction({
-      signer: keypair,
+      signer,
       transaction: tx,
       options: { showObjectChanges: true, showEffects: true },
     });
@@ -139,12 +160,12 @@ async function main() {
   const agent1CertId = findCreated(agent1Objects, 'AgentCertificate');
   console.log(`  OpenClaw Certificate: ${agent1CertId}`);
 
-  // Agent 2: RoseX (External contributor — development)
+  // Agent 2: RoseX (External contributor — development, uses keypair2)
   const registerAgent2Tx = sdk.agent.registerAgent({
     organizationId: orgId,
     capabilityTags: ['development', 'frontend', 'i18n'],
   });
-  const agent2Objects = await exec(registerAgent2Tx, 'register_agent (RoseX)');
+  const agent2Objects = await exec(registerAgent2Tx, 'register_agent (RoseX)', keypair2);
   const agent2CertId = findCreated(agent2Objects, 'AgentCertificate');
   console.log(`  RoseX Certificate: ${agent2CertId}`);
 
@@ -183,20 +204,22 @@ async function main() {
     taskIds.push(taskId);
 
     // Assign (alternate between agents)
-    const assigneeCertId = i % 2 === 0 ? agent1CertId : agent2CertId;
+    const isRoseX = i % 2 !== 0;
+    const assigneeCertId = isRoseX ? agent2CertId : agent1CertId;
+    const assigneeSigner = isRoseX ? keypair2 : keypair;
     const assignTx = sdk.task.assignTask({
       taskId,
       organizationId: orgId,
       certId: assigneeCertId,
     });
-    await exec(assignTx, `assign_task #${i + 1}`);
+    await exec(assignTx, `assign_task #${i + 1}`, assigneeSigner);
 
-    // Submit
+    // Submit (must be signed by assignee)
     const submitTx = sdk.task.submitTask({
       taskId,
       submission: t.submission,
     });
-    await exec(submitTx, `submit_task #${i + 1}`);
+    await exec(submitTx, `submit_task #${i + 1}`, assigneeSigner);
 
     // Verify
     const verifyTx = sdk.task.verifyTask({
