@@ -1,5 +1,6 @@
 #[test_only]
 module fractalmind_protocol::agent_tests {
+    use sui::object;
     use sui::test_scenario::{Self as ts};
     use std::string;
     use std::vector;
@@ -169,6 +170,33 @@ module fractalmind_protocol::agent_tests {
             let tags = agent::cert_capability_tags(&cert);
             assert!(vector::length(&tags) == 2, 0);
             ts::return_to_sender(&scenario, cert);
+        };
+
+        ts::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = 2001)]
+    fun test_deactivate_agent_with_mismatched_org_fails() {
+        let mut scenario = ts::begin(ADMIN);
+        setup_org(&mut scenario);
+
+        ts::next_tx(&mut scenario, AGENT1);
+        {
+            let mut org = ts::take_shared<Organization>(&scenario);
+            agent::register_agent(&mut org, vector::empty(), ts::ctx(&mut scenario));
+            ts::return_shared(org);
+        };
+
+        ts::next_tx(&mut scenario, AGENT1);
+        {
+            let mut org = ts::take_shared<Organization>(&scenario);
+            let registry = organization::create_test_registry(ts::ctx(&mut scenario));
+            let mut fake_cert = agent::create_test_cert(object::id(&registry), AGENT1, ts::ctx(&mut scenario));
+            organization::destroy_test_registry(registry);
+            agent::deactivate_agent(&mut fake_cert, &mut org, ts::ctx(&mut scenario));
+            ts::return_shared(org);
+            agent::destroy_test_cert(fake_cert);
         };
 
         ts::end(scenario);

@@ -48,6 +48,8 @@ module fractalmind_protocol::organization {
         child_org_count: u64,
         /// nesting depth (0 = root)
         depth: u64,
+        /// true after a governance object is created for this org
+        governance_created: bool,
         created_at: u64,
     }
 
@@ -129,6 +131,7 @@ module fractalmind_protocol::organization {
             child_orgs: table::new(ctx),
             child_org_count: 0,
             depth: 0,
+            governance_created: false,
             created_at,
         };
         let org_id = object::id(&org);
@@ -254,6 +257,10 @@ module fractalmind_protocol::organization {
         org.parent_org = option::none();
     }
 
+    public(package) fun mark_governance_created(org: &mut Organization) {
+        org.governance_created = true;
+    }
+
     /// Create a sub-organization (called from fractal module).
     #[allow(lint(self_transfer))]
     public(package) fun create_sub_organization(
@@ -288,6 +295,7 @@ module fractalmind_protocol::organization {
             child_orgs: table::new(ctx),
             child_org_count: 0,
             depth,
+            governance_created: false,
             created_at,
         };
         let org_id = object::id(&org);
@@ -326,6 +334,7 @@ module fractalmind_protocol::organization {
     public fun depth(org: &Organization): u64 { org.depth }
     public fun parent_org(org: &Organization): Option<ID> { org.parent_org }
     public fun child_org_count(org: &Organization): u64 { org.child_org_count }
+    public fun governance_created(org: &Organization): bool { org.governance_created }
     public fun has_agent(org: &Organization, agent: address): bool {
         table::contains(&org.agents, agent)
     }

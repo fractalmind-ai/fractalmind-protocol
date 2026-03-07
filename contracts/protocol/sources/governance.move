@@ -98,7 +98,7 @@ module fractalmind_protocol::governance {
     #[allow(lint(self_transfer))]
     public fun create_governance(
         admin_cap: &OrgAdminCap,
-        org: &Organization,
+        org: &mut Organization,
         ctx: &mut TxContext,
     ) {
         assert!(
@@ -106,6 +106,7 @@ module fractalmind_protocol::governance {
             constants::e_not_admin(),
         );
         assert!(organization::is_active(org), constants::e_org_not_active());
+        assert!(!organization::governance_created(org), constants::e_gov_already_exists());
 
         let governance = Governance {
             id: object::new(ctx),
@@ -119,6 +120,7 @@ module fractalmind_protocol::governance {
             admin: tx_context::sender(ctx),
         });
 
+        organization::mark_governance_created(org);
         transfer::share_object(governance);
     }
 

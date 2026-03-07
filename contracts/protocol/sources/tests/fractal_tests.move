@@ -195,4 +195,77 @@ module fractalmind_protocol::fractal_tests {
 
         ts::end(scenario);
     }
+
+    #[test]
+    #[expected_failure(abort_code = 2002)]
+    fun test_detach_sub_organization_with_wrong_child_cap_fails() {
+        let mut scenario = ts::begin(ADMIN);
+
+        // Create root org
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let mut registry = organization::create_test_registry(ts::ctx(&mut scenario));
+            organization::create_organization(
+                &mut registry,
+                string::utf8(b"DetachWrongCapRoot"),
+                string::utf8(b"root for wrong child cap test"),
+                ts::ctx(&mut scenario),
+            );
+            organization::destroy_test_registry(registry);
+        };
+
+        // Create sub-org
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let admin_cap = ts::take_from_sender<OrgAdminCap>(&scenario);
+            let mut parent = ts::take_shared<Organization>(&scenario);
+            let mut registry = organization::create_test_registry(ts::ctx(&mut scenario));
+
+            fractal::create_sub_organization(
+                &admin_cap,
+                &mut registry,
+                &mut parent,
+                string::utf8(b"DetachWrongCapChild"),
+                string::utf8(b"child"),
+                ts::ctx(&mut scenario),
+            );
+
+            organization::destroy_test_registry(registry);
+            ts::return_shared(parent);
+            ts::return_to_sender(&scenario, admin_cap);
+        };
+
+        // Try detach with parent cap passed as both parent and child cap.
+        ts::next_tx(&mut scenario, ADMIN);
+        {
+            let cap_ids = ts::ids_for_sender<OrgAdminCap>(&scenario);
+            let cap_a = ts::take_from_sender_by_id<OrgAdminCap>(
+                &scenario,
+                *std::vector::borrow(&cap_ids, 0),
+            );
+            let cap_b = ts::take_from_sender_by_id<OrgAdminCap>(
+                &scenario,
+                *std::vector::borrow(&cap_ids, 1),
+            );
+
+            let mut org_a = ts::take_shared<Organization>(&scenario);
+            let mut org_b = ts::take_shared<Organization>(&scenario);
+
+            let org_a_is_parent = organization::child_org_count(&org_a) > 0;
+            if (org_a_is_parent) {
+                let parent_cap = if (organization::admin_cap_org_id(&cap_a) == organization::org_id(&org_a)) { &cap_a } else { &cap_b };
+                fractal::detach_sub_organization(parent_cap, parent_cap, &mut org_a, &mut org_b);
+            } else {
+                let parent_cap = if (organization::admin_cap_org_id(&cap_a) == organization::org_id(&org_b)) { &cap_a } else { &cap_b };
+                fractal::detach_sub_organization(parent_cap, parent_cap, &mut org_b, &mut org_a);
+            };
+
+            ts::return_shared(org_b);
+            ts::return_shared(org_a);
+            ts::return_to_sender(&scenario, cap_b);
+            ts::return_to_sender(&scenario, cap_a);
+        };
+
+        ts::end(scenario);
+    }
 }
