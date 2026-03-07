@@ -2,7 +2,7 @@
 name = "fractalmind_protocol"
 version = "0.0.1"
 edition = "2024.beta"
-published-at = "0xbcd809654bae11a06cde392204badd1806695ebbacfeb8c89e13c94bd05180e1"
+published-at = "0x6ac36fed2e6692c62aaa54cdaf7485bbcab88eb8993d43ba19d5cfc2748046a3"
 
 [dependencies.Sui]
 git = "https://github.com/MystenLabs/sui.git"

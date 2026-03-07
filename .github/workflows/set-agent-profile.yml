@@ -61,7 +61,7 @@ jobs:
         run: |
           set -euo pipefail
           # NOTE: Update PACKAGE_ID after upgrade deployment
-          PACKAGE_ID="0xbcd809654bae11a06cde392204badd1806695ebbacfeb8c89e13c94bd05180e1"
+          PACKAGE_ID="0x6ac36fed2e6692c62aaa54cdaf7485bbcab88eb8993d43ba19d5cfc2748046a3"
 
           echo "Setting profile for agent ${{ inputs.agent_address }} in org ${{ inputs.org_id }}"
           echo "Name: ${{ inputs.name }}"
