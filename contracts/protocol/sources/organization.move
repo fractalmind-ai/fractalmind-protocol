@@ -291,6 +291,10 @@ module fractalmind_protocol::organization {
         org.parent_org = option::none();
     }
 
+    public(package) fun borrow_uid(org: &Organization): &UID { &org.id }
+
+    public(package) fun borrow_uid_mut(org: &mut Organization): &mut UID { &mut org.id }
+
     /// Create a sub-organization (called from fractal module).
     #[allow(lint(self_transfer))]
     public(package) fun create_sub_organization(

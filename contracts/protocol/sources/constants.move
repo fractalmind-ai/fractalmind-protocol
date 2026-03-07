@@ -55,10 +55,18 @@ module fractalmind_protocol::constants {
     const E_REVIEW_EMPTY_REVIEWERS: u64 = 7006;
     const E_REVIEW_AGENT_CERT_MISMATCH: u64 = 7007;
 
+    // Profile errors (8xxx)
+    const E_PROFILE_NOT_FOUND: u64 = 8001;
+    const E_PROFILE_EMPTY_NAME: u64 = 8002;
+    const E_PROFILE_NAME_TOO_LONG: u64 = 8003;
+    const E_PROFILE_URL_TOO_LONG: u64 = 8004;
+
     // ===== System Limits =====
 
     const MAX_FRACTAL_DEPTH: u64 = 8;
     const MAX_CAPABILITY_TAGS: u64 = 10;
+    const MAX_PROFILE_NAME_LENGTH: u64 = 64;
+    const MAX_PROFILE_URL_LENGTH: u64 = 256;
 
     // ===== Agent Status =====
 
@@ -138,11 +146,17 @@ module fractalmind_protocol::constants {
     public fun e_review_invalid_threshold(): u64 { E_REVIEW_INVALID_THRESHOLD }
     public fun e_review_empty_reviewers(): u64 { E_REVIEW_EMPTY_REVIEWERS }
     public fun e_review_agent_cert_mismatch(): u64 { E_REVIEW_AGENT_CERT_MISMATCH }
+    public fun e_profile_not_found(): u64 { E_PROFILE_NOT_FOUND }
+    public fun e_profile_empty_name(): u64 { E_PROFILE_EMPTY_NAME }
+    public fun e_profile_name_too_long(): u64 { E_PROFILE_NAME_TOO_LONG }
+    public fun e_profile_url_too_long(): u64 { E_PROFILE_URL_TOO_LONG }
 
     // ===== Public Accessors — Limits =====
 
     public fun max_fractal_depth(): u64 { MAX_FRACTAL_DEPTH }
     public fun max_capability_tags(): u64 { MAX_CAPABILITY_TAGS }
+    public fun max_profile_name_length(): u64 { MAX_PROFILE_NAME_LENGTH }
+    public fun max_profile_url_length(): u64 { MAX_PROFILE_URL_LENGTH }
 
     // ===== Public Accessors — Agent Status =====
 

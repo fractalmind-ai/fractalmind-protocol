@@ -13,6 +13,7 @@ module fractalmind_protocol::entry {
     use fractalmind_protocol::fractal;
     use fractalmind_protocol::governance::{Self, Governance, Proposal};
     use fractalmind_protocol::review::{Self, Review};
+    use fractalmind_protocol::profile;
 
     // ===== Organization Entry Points =====
 
@@ -277,5 +278,28 @@ module fractalmind_protocol::entry {
         ctx: &TxContext,
     ) {
         review::finalize_review(admin_cap, review_obj, assignee_cert, ctx);
+    }
+
+    // ===== Profile Entry Points =====
+
+    public entry fun set_agent_profile(
+        org: &mut Organization,
+        cert: &AgentCertificate,
+        name: String,
+        avatar_url: String,
+        ctx: &mut TxContext,
+    ) {
+        profile::set_profile(org, cert, name, avatar_url, ctx);
+    }
+
+    public entry fun admin_set_agent_profile(
+        admin_cap: &OrgAdminCap,
+        org: &mut Organization,
+        agent: address,
+        name: String,
+        avatar_url: String,
+        ctx: &mut TxContext,
+    ) {
+        profile::admin_set_profile(admin_cap, org, agent, name, avatar_url, ctx);
     }
 }
