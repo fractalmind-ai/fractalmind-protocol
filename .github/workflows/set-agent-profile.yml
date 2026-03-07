@@ -1,0 +1,87 @@
+name: Set Agent Profile
+
+on:
+  workflow_dispatch:
+    inputs:
+      org_id:
+        description: 'Organization object ID'
+        required: true
+      admin_cap_id:
+        description: 'OrgAdminCap object ID'
+        required: true
+      agent_address:
+        description: 'Agent address to set profile for'
+        required: true
+      name:
+        description: 'Agent display name'
+        required: true
+      avatar_url:
+        description: 'Agent avatar URL (can be empty)'
+        required: false
+        default: ''
+
+jobs:
+  set-profile:
+    name: Set agent profile on Testnet
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Sui CLI
+        run: |
+          set -euo pipefail
+          SUI_VERSION="testnet-v1.67.1"
+          ARCHIVE="sui-${SUI_VERSION}-ubuntu-x86_64.tgz"
+          curl -fsSL "https://github.com/MystenLabs/sui/releases/download/${SUI_VERSION}/${ARCHIVE}" -o sui.tgz
+          tar -xzf sui.tgz
+          FOUND=$(find . -type f -name sui -perm -111 | head -1)
+          if [ -n "$FOUND" ]; then sudo mv "$FOUND" /usr/local/bin/sui; else sudo mv sui /usr/local/bin/; fi
+          rm -rf sui.tgz target/
+          sui --version
+
+      - name: Configure client
+        run: |
+          set -euo pipefail
+          rm -rf "$HOME/.sui"
+          sui client --yes new-env --alias testnet --rpc "https://fullnode.testnet.sui.io:443" || true
+          sui client switch --env testnet
+
+      - name: Import wallet
+        env:
+          SUI_MNEMONICS: ${{ secrets.TESTNET_SUI_MNEMONICS }}
+        run: |
+          set -euo pipefail
+          DERIVATION_PATH="m/44'/784'/0'/0'/0'"
+          rm -f "$HOME/.sui/sui_config/sui.keystore"
+          sui keytool import "$SUI_MNEMONICS" ed25519 "$DERIVATION_PATH"
+          WALLET_ADDRESS=$(sui keytool list | grep -o "0x[0-9a-fA-F]\{64\}" | head -1)
+          sui client switch --address "$WALLET_ADDRESS"
+          echo "Wallet: $WALLET_ADDRESS"
+
+      - name: Set agent profile
+        run: |
+          set -euo pipefail
+          # NOTE: Update PACKAGE_ID after upgrade deployment
+          PACKAGE_ID="0xbcd809654bae11a06cde392204badd1806695ebbacfeb8c89e13c94bd05180e1"
+
+          echo "Setting profile for agent ${{ inputs.agent_address }} in org ${{ inputs.org_id }}"
+          echo "Name: ${{ inputs.name }}"
+          echo "Avatar: ${{ inputs.avatar_url }}"
+
+          sui client call \
+            --package "$PACKAGE_ID" \
+            --module entry \
+            --function admin_set_agent_profile \
+            --args \
+              "${{ inputs.admin_cap_id }}" \
+              "${{ inputs.org_id }}" \
+              "${{ inputs.agent_address }}" \
+              "${{ inputs.name }}" \
+              "${{ inputs.avatar_url }}" \
+            --gas-budget 50000000 \
+            --json
+
+          echo "Done! Agent profile set."
+
+      - name: Cleanup
+        if: always()
+        run: rm -f "$HOME/.sui/sui_config/sui.keystore"
