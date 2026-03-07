@@ -128,9 +128,10 @@ async function main() {
   // ============================================
   // Step 1: Create SuLabs Organization
   // ============================================
-  console.log('\n--- Step 1: Create SuLabs Organization ---');
+  const orgName = `SuLabs-${Date.now()}`;
+  console.log(`\n--- Step 1: Create ${orgName} Organization ---`);
   const createOrgTx = sdk.organization.createOrganization({
-    name: 'SuLabs',
+    name: orgName,
     description: 'AI Agent organization for SUI ecosystem development — powered by FractalMind Protocol',
   });
   const orgObjects = await exec(createOrgTx, 'create_organization');
