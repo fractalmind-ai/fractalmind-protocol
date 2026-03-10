@@ -1,14 +1,25 @@
 {
-  "name": "@fractalmind/protocol-sdk",
+  "name": "@fractalmind-ai/fractalmind-sdk",
   "version": "0.1.0",
   "description": "TypeScript SDK for FractalMind Protocol on Sui",
   "license": "MIT",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist",
-    "src"
+    "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "engines": {
     "node": ">=18"
   },
