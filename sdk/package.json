@@ -27,7 +27,7 @@
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --test tests/sdk.test.ts"
   },
   "dependencies": {
     "@mysten/sui": "^1.38.0"
