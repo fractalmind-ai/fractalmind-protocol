@@ -22,7 +22,7 @@ npm install
 ## Quick Start
 
 ```ts
-import { FractalMindSDK } from '@fractalmind/protocol-sdk';
+import { FractalMindSDK } from '@fractalmind-ai/fractalmind-sdk';
 
 const sdk = new FractalMindSDK({
   packageId: '0xYOUR_PACKAGE_ID',

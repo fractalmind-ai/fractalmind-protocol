@@ -1,0 +1,118 @@
+name: SDK Pre-publish Validation
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-sdk-prepublish:
+    name: Validate npm pre-publish chain (no publish)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+          cache-dependency-path: sdk/package-lock.json
+
+      - name: Resolve npm auth token
+        id: npm-token
+        env:
+          RAW_NPMJS_ACCESS_TOKEN: ${{ secrets.NPMJS_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -n "${RAW_NPMJS_ACCESS_TOKEN:-}" ]; then
+            echo "token_source=NPMJS_ACCESS_TOKEN" >> "$GITHUB_OUTPUT"
+            echo "NODE_AUTH_TOKEN=${RAW_NPMJS_ACCESS_TOKEN}" >> "$GITHUB_ENV"
+          else
+            echo "::error::Missing npm auth secret. Set secrets.NPMJS_ACCESS_TOKEN."
+            exit 1
+          fi
+
+      - name: Verify npm authentication
+        id: npm-auth
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          NPM_USERNAME="$(npm whoami)"
+          if [ -z "${NPM_USERNAME}" ]; then
+            echo "::error::npm whoami returned empty username."
+            exit 1
+          fi
+          echo "npm_username=${NPM_USERNAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify @fractalmind-ai organization membership
+        id: npm-org
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
+          NPM_USERNAME: ${{ steps.npm-auth.outputs.npm_username }}
+        run: |
+          set -euo pipefail
+          npm org ls fractalmind-ai "$NPM_USERNAME" --json > org-membership.json
+          ORG_ROLE="$(jq -r --arg u "$NPM_USERNAME" '.[$u] // empty' org-membership.json)"
+          if [ -z "${ORG_ROLE}" ] || [ "${ORG_ROLE}" = "null" ]; then
+            echo "::error::Unable to verify npm org membership for ${NPM_USERNAME} in @fractalmind-ai."
+            cat org-membership.json
+            exit 1
+          fi
+          echo "org_role=${ORG_ROLE}" >> "$GITHUB_OUTPUT"
+
+      - name: Optional scope package visibility probe
+        id: scope-probe
+        continue-on-error: true
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
+        run: npm access list packages @fractalmind-ai --json > scope-packages.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      - name: Pack
+        run: npm pack --json | tee pack-result.json
+
+      - name: Pre-publish dry run
+        env:
+          NODE_AUTH_TOKEN: ${{ env.NODE_AUTH_TOKEN }}
+        run: npm publish --dry-run --access public
+
+      - name: Upload prepublish artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-prepublish-validation-${{ github.run_id }}
+          path: |
+            sdk/pack-result.json
+            sdk/*.tgz
+
+      - name: Summary
+        run: |
+          cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+          # SDK Pre-publish Validation (No Real Publish)
+
+          This workflow only validates the npm pre-publish chain.
+          - Trigger mode: \`workflow_dispatch\`
+          - Token source: \`${{ steps.npm-token.outputs.token_source }}\`
+          - npm user: \`${{ steps.npm-auth.outputs.npm_username }}\`
+          - @fractalmind-ai role: \`${{ steps.npm-org.outputs.org_role }}\`
+          - Optional scope probe: \`${{ steps.scope-probe.outcome }}\` (non-blocking; may fail under limited npm role)
+          - Commands: \`npm ci\`, \`npm run build\`, \`npm test\`, \`npm pack\`, \`npm publish --dry-run --access public\`
+          - \`npm whoami\` + org membership check are hard gates to avoid dry-run false positives.
+          - No real publish is executed in this workflow.
+          EOF
